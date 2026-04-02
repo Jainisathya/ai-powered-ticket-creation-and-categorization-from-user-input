@@ -16,9 +16,15 @@ for p in [str(_BACKEND_DIR), str(_PROJECT_ROOT)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-# ── INIT DB ───────────────────────────────────────────────────────────
+# ── INIT DB + SEED DEFAULT ACCOUNTS ──────────────────────────────────
 from database import init_db
 init_db()
+
+# Seed creates admin + user accounts from env vars if they don't exist.
+# Runs on every startup — safe to re-run (skips existing accounts).
+from seed_db import seed as _seed_accounts
+_seed_accounts()
+
 
 # ── FASTAPI APP ───────────────────────────────────────────────────────
 from fastapi import FastAPI
@@ -36,10 +42,18 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
-# Allow Next.js dev server (port 3000) and production domain
+# Read allowed origins from environment variable (comma-separated)
+# e.g. ALLOWED_ORIGINS=https://your-app.vercel.app,http://localhost:3000
+import os as _os
+_raw_origins = _os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000"
+)
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
